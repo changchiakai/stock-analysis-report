@@ -40,6 +40,24 @@ The `src/content/` directory contains "collections" of related Markdown and MDX 
 
 Any static assets, like images, can be placed in the `public/` directory.
 
+## 📊 報告來源
+
+本站的研究報告使用 [ai-berkshire](https://github.com/xbtlin/ai-berkshire.git) 產生，產出後將 Markdown 檔案放入 `src/content/blog/` 目錄即可自動發布。
+
+## 🔍 SEO
+
+- `sitemap.xml` 由 `@astrojs/sitemap` 於每次 `npm run build` 時自動產生，涵蓋所有頁面與報告，網址以 `astro.config.mjs` 的 `site` 為準。
+- 每篇報告的 frontmatter 可加入 `keywords`（字串陣列）欄位，會自動輸出成 `<meta name="keywords">`、Open Graph 與 JSON-LD 結構化資料，例如：
+
+  ```md
+  ---
+  title: "國巨（2327.TW）投資研究報告"
+  description: "..."
+  pubDate: "2026-08-03"
+  keywords: ["國巨", "2327", "被動元件", "MLCC", "台股研究"]
+  ---
+  ```
+
 ## 🧞 Commands
 
 All commands are run from the root of the project, from a terminal:

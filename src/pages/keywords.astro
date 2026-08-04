@@ -1,0 +1,627 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { SITE_TITLE, SITE_KEYWORDS } from '../consts';
+import { getCollection } from 'astro:content';
+
+const posts = await getCollection('blog');
+
+// Group posts by keyword.
+const keywordMap = new Map<string, { id: string; title: string; description: string; pubDate: Date }[]>();
+for (const post of posts) {
+	for (const keyword of post.data.keywords ?? []) {
+		const entry = { id: post.id, title: post.data.title, description: post.data.description, pubDate: post.data.pubDate };
+		if (!keywordMap.has(keyword)) keywordMap.set(keyword, []);
+		keywordMap.get(keyword)!.push(entry);
+	}
+}
+const keywords = [...keywordMap.keys()].sort(
+	(a, b) => keywordMap.get(b)!.length - keywordMap.get(a)!.length || a.localeCompare(b, 'zh-Hant'),
+);
+
+// Bipartite graph: report nodes are small, keyword nodes grow with how many reports share them.
+// Reports that share a keyword naturally cluster around that keyword hub once the layout settles.
+const graphNodes = [
+	...keywords.map((keyword) => ({
+		id: `kw:${keyword}`,
+		kind: 'keyword' as const,
+		label: keyword,
+		weight: keywordMap.get(keyword)!.length,
+	})),
+	...posts.map((post) => ({
+		id: `post:${post.id}`,
+		kind: 'post' as const,
+		label: post.data.title,
+		weight: 1,
+	})),
+];
+const graphLinks = posts.flatMap((post) =>
+	(post.data.keywords ?? []).map((keyword) => ({ source: `post:${post.id}`, target: `kw:${keyword}` })),
+);
+
+// Passed to the client script; keep it small and serialisable.
+const keywordDetails = Object.fromEntries(
+	keywords.map((keyword) => [
+		keyword,
+		keywordMap.get(keyword)!.map((p) => ({
+			id: p.id,
+			title: p.title,
+			description: p.description,
+			pubDate: p.pubDate.toISOString(),
+		})),
+	]),
+);
+const postDetails = Object.fromEntries(
+	posts.map((post) => [
+		post.id,
+		{
+			title: post.data.title,
+			description: post.data.description,
+			pubDate: post.data.pubDate.toISOString(),
+			keywords: post.data.keywords ?? [],
+		},
+	]),
+);
+---
+
+<!doctype html>
+<html lang="zh-Hant">
+	<head>
+		<BaseHead
+			title={`關鍵字關聯圖 · ${SITE_TITLE}`}
+			description="以關鍵字關聯圖瀏覽所有研究報告——報告聚集到共同關鍵字節點,點擊即可找出相關內容。"
+			keywords={SITE_KEYWORDS}
+		/>
+		<style>
+			/* Hallmark · component: force-directed graph · genre: editorial · theme: Almanac
+			 * states: default · hover · focus-visible · dragging · selected · empty
+			 */
+			main {
+				width: min(calc(100% - 2em), 960px);
+			}
+			@media (min-width: 800px) {
+				main {
+					width: min(calc(100% - 3em), 1240px);
+				}
+			}
+			.intro {
+				max-width: var(--measure);
+				color: var(--color-muted);
+			}
+			.legend {
+				display: flex;
+				flex-wrap: wrap;
+				gap: var(--space-md);
+				margin: 0 0 var(--space-sm);
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				color: var(--color-muted);
+			}
+			.legend span {
+				display: inline-flex;
+				align-items: center;
+				gap: var(--space-3xs);
+			}
+			.legend .dot {
+				width: 0.6rem;
+				height: 0.6rem;
+				border-radius: 50%;
+				display: inline-block;
+			}
+			.legend .dot--keyword {
+				background: var(--color-accent);
+			}
+			.legend .dot--post {
+				background: var(--color-neutral);
+			}
+			.graph-wrap {
+				display: grid;
+				grid-template-columns: 1fr;
+				gap: var(--space-md);
+				margin: 0 0 var(--space-lg);
+			}
+			@media (min-width: 800px) {
+				.graph-wrap {
+					grid-template-columns: minmax(0, 1fr) 22rem;
+					align-items: start;
+				}
+			}
+			.graph {
+				display: block;
+				width: 100%;
+				aspect-ratio: 4 / 3;
+				background: var(--color-paper-2);
+				border: 1px solid var(--color-rule);
+				border-radius: var(--radius-card);
+				touch-action: none;
+			}
+			.link {
+				stroke: var(--color-rule);
+				stroke-width: 0.35;
+				transition: opacity var(--dur-short) var(--ease-out);
+			}
+			.node {
+				cursor: grab;
+				outline: none;
+			}
+			.node circle {
+				stroke-width: 0;
+				transition:
+					fill-opacity var(--dur-short) var(--ease-out),
+					stroke-width var(--dur-short) var(--ease-out);
+			}
+			.node--keyword circle {
+				fill: var(--color-accent);
+				fill-opacity: 0.4;
+			}
+			.node--post circle {
+				fill: var(--color-neutral);
+				fill-opacity: 0.7;
+			}
+			.node text {
+				font-family: var(--font-mono);
+				pointer-events: none;
+				text-anchor: middle;
+			}
+			.node--keyword text {
+				font-size: 2.1px;
+				fill: var(--color-muted);
+			}
+			.node--post text {
+				font-size: 1.8px;
+				fill: var(--color-ink-2);
+				opacity: 0;
+				transition: opacity var(--dur-short) var(--ease-out);
+			}
+			.node:hover text,
+			.node:focus-visible text {
+				opacity: 1;
+			}
+			.node:hover circle,
+			.node:focus-visible circle {
+				fill-opacity: 0.8;
+			}
+			.node:active {
+				cursor: grabbing;
+			}
+			.node:focus-visible circle {
+				stroke: var(--color-focus);
+				stroke-width: 0.5;
+			}
+			.node.is-active circle {
+				fill-opacity: 0.95;
+				stroke: var(--color-accent);
+				stroke-width: 0.45;
+			}
+			.node.is-active text {
+				opacity: 1;
+				fill: var(--color-ink);
+				font-weight: 600;
+			}
+			.node.is-dim {
+				opacity: 0.2;
+			}
+			.link.is-dim {
+				opacity: 0.15;
+			}
+			.panel {
+				border: 1px solid var(--color-rule);
+				border-radius: var(--radius-card);
+				padding: var(--space-sm);
+				min-height: 12rem;
+			}
+			.panel-placeholder {
+				color: var(--color-muted);
+				font-size: var(--text-sm);
+			}
+			.panel-title {
+				margin: 0 0 var(--space-3xs);
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				letter-spacing: 0.06em;
+				color: var(--color-muted);
+				text-transform: uppercase;
+			}
+			.panel-heading {
+				margin: 0 0 var(--space-sm);
+				font-family: var(--font-display);
+				font-size: var(--text-md);
+				color: var(--color-ink);
+			}
+			.panel-count,
+			.panel-desc,
+			.panel-date {
+				margin: 0 0 var(--space-sm);
+				font-size: var(--text-sm);
+				color: var(--color-muted);
+			}
+			.panel-link {
+				display: inline-block;
+				margin-bottom: var(--space-sm);
+				font-family: var(--font-mono);
+				font-size: var(--text-sm);
+				color: var(--color-accent);
+			}
+			.panel-list {
+				list-style: none;
+				margin: 0;
+				padding: 0;
+				display: grid;
+				gap: var(--space-sm);
+			}
+			.panel-list a {
+				display: block;
+				color: var(--color-ink);
+				text-decoration: none;
+			}
+			.panel-list a:hover .panel-list-title {
+				color: var(--color-accent);
+			}
+			.panel-list-title {
+				margin: 0;
+				font-family: var(--font-display);
+				font-size: var(--text-md);
+			}
+			.panel-list-desc {
+				margin: var(--space-3xs) 0 0;
+				font-size: var(--text-sm);
+				color: var(--color-muted);
+			}
+			.panel-chips {
+				list-style: none;
+				margin: 0;
+				padding: 0;
+				display: flex;
+				flex-wrap: wrap;
+				gap: var(--space-2xs);
+			}
+			.panel-chip {
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				color: var(--color-muted);
+				background: var(--color-paper-2);
+				border: 1px solid var(--color-rule);
+				border-radius: var(--radius-pill);
+				padding: var(--space-3xs) var(--space-xs);
+				cursor: pointer;
+			}
+			.panel-chip:hover {
+				color: var(--color-ink);
+			}
+		</style>
+	</head>
+	<body>
+		<Header />
+		<main>
+			<h1>關鍵字關聯圖</h1>
+			<p class="intro">
+				大點是關鍵字,關聯的報告愈多就愈大;小點是個別報告,會被拉向它所屬的關鍵字節點,自然聚成一群。點擊任一節點查看詳情,也可以拖曳節點調整佈局。
+			</p>
+			{
+				keywords.length === 0 ? (
+					<p>目前還沒有帶關鍵字的報告。</p>
+				) : (
+					<>
+						<p class="legend">
+							<span><span class="dot dot--keyword" /> 關鍵字</span>
+							<span><span class="dot dot--post" /> 報告</span>
+						</p>
+						<div class="graph-wrap">
+							<svg class="graph" viewBox="0 0 100 75" role="img" aria-label="關鍵字關聯圖">
+								<g class="links">
+									{graphLinks.map((l) => (
+										<line class="link" data-source={l.source} data-target={l.target} />
+									))}
+								</g>
+								<g class="nodes">
+									{graphNodes.map((n) => (
+										<g
+											class={`node node--${n.kind}`}
+											tabindex="0"
+											role="button"
+											aria-label={n.kind === 'keyword' ? `${n.label}（${n.weight} 篇報告）` : n.label}
+											data-id={n.id}
+											data-kind={n.kind}
+										>
+											<circle class="hit" r="2" fill="transparent" />
+											<circle class="dot" />
+											<text>{n.label}</text>
+										</g>
+									))}
+								</g>
+							</svg>
+							<aside class="panel" id="graph-panel">
+								<p class="panel-placeholder">點擊任一節點,查看詳情</p>
+							</aside>
+						</div>
+					</>
+				)
+			}
+		</main>
+		<Footer />
+		<script type="module" define:vars={{ graphNodes, graphLinks, keywordDetails, postDetails }}>
+			const svg = document.querySelector('.graph');
+			const panel = document.getElementById('graph-panel');
+			if (svg && panel) {
+				const W = 100;
+				const H = 75;
+				const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+				const nodes = graphNodes.map((n, i) => ({
+					...n,
+					r: n.kind === 'keyword' ? Math.min(7, 1.8 + Math.sqrt(n.weight) * 1.5) : 1,
+					x: W / 2 + Math.cos((i / graphNodes.length) * Math.PI * 2) * 10,
+					y: H / 2 + Math.sin((i / graphNodes.length) * Math.PI * 2) * 10,
+					vx: 0,
+					vy: 0,
+					fx: null,
+					fy: null,
+				}));
+				const nodeById = new Map(nodes.map((n) => [n.id, n]));
+				const links = graphLinks
+					.map((l) => ({ source: nodeById.get(l.source), target: nodeById.get(l.target) }))
+					.filter((l) => l.source && l.target);
+
+				// A small, self-contained force layout (repulsion + link springs + centring) —
+				// no dependency needed for a graph this size.
+				let alpha = 1;
+				const alphaMin = 0.001;
+				const alphaDecay = 1 - Math.pow(alphaMin, 1 / 300);
+				let alphaTarget = 0;
+				const velocityDecay = 0.55;
+
+				function tick() {
+					alpha += (alphaTarget - alpha) * alphaDecay;
+
+					for (let i = 0; i < nodes.length; i++) {
+						for (let j = i + 1; j < nodes.length; j++) {
+							const a = nodes[i];
+							const b = nodes[j];
+							let dx = b.x - a.x;
+							let dy = b.y - a.y;
+							let distSq = dx * dx + dy * dy;
+							if (distSq < 0.01) {
+								dx = (Math.random() - 0.5) * 0.1;
+								dy = (Math.random() - 0.5) * 0.1;
+								distSq = dx * dx + dy * dy;
+							}
+							const strength = ((a.r + b.r) * 2.2 * alpha) / distSq;
+							const fx = dx * strength;
+							const fy = dy * strength;
+							a.vx -= fx;
+							a.vy -= fy;
+							b.vx += fx;
+							b.vy += fy;
+						}
+					}
+
+					for (const { source, target } of links) {
+						const dx = target.x - source.x;
+						const dy = target.y - source.y;
+						const dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
+						const targetLen = 6 + (source.r + target.r) * 0.9;
+						const diff = ((dist - targetLen) / dist) * 0.25 * alpha;
+						const fx = dx * diff;
+						const fy = dy * diff;
+						source.vx += fx;
+						source.vy += fy;
+						target.vx -= fx;
+						target.vy -= fy;
+					}
+
+					for (const n of nodes) {
+						n.vx += (W / 2 - n.x) * 0.01 * alpha;
+						n.vy += (H / 2 - n.y) * 0.01 * alpha;
+
+						if (n.fx != null) {
+							n.x = n.fx;
+							n.vx = 0;
+						} else {
+							n.vx *= velocityDecay;
+							n.x += n.vx;
+						}
+						if (n.fy != null) {
+							n.y = n.fy;
+							n.vy = 0;
+						} else {
+							n.vy *= velocityDecay;
+							n.y += n.vy;
+						}
+						n.x = Math.max(n.r, Math.min(W - n.r, n.x));
+						n.y = Math.max(n.r, Math.min(H - n.r, n.y));
+					}
+				}
+
+				function render() {
+					for (const n of nodes) {
+						n.el.setAttribute('transform', `translate(${n.x} ${n.y})`);
+						n.dotEl.setAttribute('r', n.r);
+						n.textEl.setAttribute('y', n.r + 3);
+					}
+					for (const l of linkEls) {
+						l.line.setAttribute('x1', l.source.x);
+						l.line.setAttribute('y1', l.source.y);
+						l.line.setAttribute('x2', l.target.x);
+						l.line.setAttribute('y2', l.target.y);
+					}
+				}
+
+				let raf = null;
+				function loop() {
+					tick();
+					render();
+					if (alpha > alphaMin) {
+						raf = requestAnimationFrame(loop);
+					} else {
+						raf = null;
+					}
+				}
+				function reheat(target = 0.3) {
+					alphaTarget = target;
+					if (!raf) raf = requestAnimationFrame(loop);
+				}
+
+				// Wire DOM elements to node/link data.
+				for (const el of svg.querySelectorAll('.node')) {
+					const n = nodeById.get(el.dataset.id);
+					if (!n) continue;
+					n.el = el;
+					n.dotEl = el.querySelector('.dot');
+					n.hitEl = el.querySelector('.hit');
+					n.textEl = el.querySelector('text');
+					// Hit area is only slightly larger than the visible dot so overlapping
+					// clusters don't steal clicks from their neighbours.
+					n.hitEl.setAttribute('r', n.r + 1.2);
+				}
+				const linkEls = [...svg.querySelectorAll('.link')].map((line) => ({
+					line,
+					source: nodeById.get(line.dataset.source),
+					target: nodeById.get(line.dataset.target),
+				}));
+
+				if (reduceMotion) {
+					// Settle instantly instead of animating in, per prefers-reduced-motion.
+					for (let i = 0; i < 300; i++) tick();
+					render();
+				} else {
+					loop();
+				}
+
+				// Drag to reposition; releasing lets the node spring back into the simulation.
+				function toSvgPoint(evt) {
+					const pt = svg.createSVGPoint();
+					pt.x = evt.clientX;
+					pt.y = evt.clientY;
+					return pt.matrixTransform(svg.getScreenCTM().inverse());
+				}
+				let dragging = null;
+				for (const n of nodes) {
+					n.el.addEventListener('pointerdown', (evt) => {
+						dragging = n;
+						try {
+							n.el.setPointerCapture(evt.pointerId);
+						} catch {
+							// Pointer capture is a nice-to-have; dragging still works without it.
+						}
+						const p = toSvgPoint(evt);
+						n.fx = p.x;
+						n.fy = p.y;
+						if (!reduceMotion) reheat(0.4);
+					});
+				}
+				svg.addEventListener('pointermove', (evt) => {
+					if (!dragging) return;
+					const p = toSvgPoint(evt);
+					dragging.fx = Math.max(dragging.r, Math.min(W - dragging.r, p.x));
+					dragging.fy = Math.max(dragging.r, Math.min(H - dragging.r, p.y));
+					if (reduceMotion) render();
+				});
+				function endDrag() {
+					if (!dragging) return;
+					dragging.fx = null;
+					dragging.fy = null;
+					if (!reduceMotion) alphaTarget = 0;
+					dragging = null;
+				}
+				svg.addEventListener('pointerup', endDrag);
+				svg.addEventListener('pointercancel', endDrag);
+
+				// Selection: click a node to highlight its neighbours and fill the panel.
+				function neighboursOf(id) {
+					const ids = new Set([id]);
+					for (const l of links) {
+						if (l.source.id === id) ids.add(l.target.id);
+						if (l.target.id === id) ids.add(l.source.id);
+					}
+					return ids;
+				}
+
+				function renderKeywordPanel(keyword) {
+					const posts = keywordDetails[keyword] ?? [];
+					panel.replaceChildren();
+					const heading = document.createElement('p');
+					heading.className = 'panel-heading';
+					heading.textContent = keyword;
+					const count = document.createElement('p');
+					count.className = 'panel-count';
+					count.textContent = `共 ${posts.length} 篇報告`;
+					const list = document.createElement('ul');
+					list.className = 'panel-list';
+					for (const post of posts) {
+						const li = document.createElement('li');
+						const a = document.createElement('a');
+						a.href = `/blog/${post.id}/`;
+						const t = document.createElement('p');
+						t.className = 'panel-list-title';
+						t.textContent = post.title;
+						const d = document.createElement('p');
+						d.className = 'panel-list-desc';
+						d.textContent = post.description;
+						a.append(t, d);
+						li.append(a);
+						list.append(li);
+					}
+					panel.append(heading, count, list);
+				}
+
+				function renderPostPanel(postId) {
+					const post = postDetails[postId];
+					if (!post) return;
+					panel.replaceChildren();
+					const heading = document.createElement('p');
+					heading.className = 'panel-heading';
+					heading.textContent = post.title;
+					const desc = document.createElement('p');
+					desc.className = 'panel-desc';
+					desc.textContent = post.description;
+					const link = document.createElement('a');
+					link.className = 'panel-link';
+					link.href = `/blog/${postId}/`;
+					link.textContent = '查看完整報告 →';
+					const chips = document.createElement('ul');
+					chips.className = 'panel-chips';
+					for (const keyword of post.keywords) {
+						const li = document.createElement('li');
+						const btn = document.createElement('button');
+						btn.type = 'button';
+						btn.className = 'panel-chip';
+						btn.textContent = keyword;
+						btn.addEventListener('click', () => selectNode(`kw:${keyword}`));
+						li.append(btn);
+						chips.append(li);
+					}
+					panel.append(heading, desc, link, chips);
+				}
+
+				function selectNode(id) {
+					const active = neighboursOf(id);
+					for (const n of nodes) {
+						n.el.classList.toggle('is-active', n.id === id);
+						n.el.classList.toggle('is-dim', !active.has(n.id));
+					}
+					for (const l of linkEls) {
+						const on = l.source.id === id || l.target.id === id;
+						l.line.classList.toggle('is-dim', !on);
+					}
+					const node = nodeById.get(id);
+					if (node.kind === 'keyword') {
+						renderKeywordPanel(node.label);
+					} else {
+						renderPostPanel(node.id.slice('post:'.length));
+					}
+				}
+
+				for (const n of nodes) {
+					n.el.addEventListener('click', () => selectNode(n.id));
+					n.el.addEventListener('keydown', (evt) => {
+						if (evt.key === 'Enter' || evt.key === ' ') {
+							evt.preventDefault();
+							selectNode(n.id);
+						}
+					});
+				}
+			}
+		</script>
+	</body>
+</html>

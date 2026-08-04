@@ -1,138 +1,194 @@
-/*
-  The CSS in this style tag is based off of Bear Blog's default CSS.
-  https://github.com/HermanMartinus/bearblog/blob/297026a877bc2ab2b3bdfbd6b9f7961c350917dd/templates/styles/blog/default.css
-  License MIT: https://github.com/HermanMartinus/bearblog/blob/master/LICENSE.md
- */
+/* Hallmark · macrostructure: Long Document · genre: editorial · theme: Almanac (paper-band: light · display: roman-serif · accent: cool) */
+@import "./tokens.css";
 
-:root {
-	--accent: #2337ff;
-	--accent-dark: #000d8a;
-	--black: 15, 18, 25;
-	--gray: 96, 115, 159;
-	--gray-light: 229, 233, 240;
-	--gray-dark: 34, 41, 57;
-	--gray-gradient: rgba(var(--gray-light), 50%), #fff;
-	--box-shadow:
-		0 2px 6px rgba(var(--gray), 25%), 0 8px 24px rgba(var(--gray), 33%),
-		0 16px 32px rgba(var(--gray), 33%);
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
 }
-@font-face {
-	font-family: "Atkinson";
-	src: url("/fonts/atkinson-regular.woff") format("woff");
-	font-weight: 400;
-	font-style: normal;
-	font-display: swap;
-}
-@font-face {
-	font-family: "Atkinson";
-	src: url("/fonts/atkinson-bold.woff") format("woff");
-	font-weight: 700;
-	font-style: normal;
-	font-display: swap;
-}
+
+html,
 body {
-	font-family: "Atkinson", sans-serif;
+	overflow-x: clip;
+}
+
+html {
+	background: var(--color-paper);
+}
+
+body {
+	font-family: var(--font-body);
 	margin: 0;
 	padding: 0;
 	text-align: left;
-	background: linear-gradient(var(--gray-gradient)) no-repeat;
-	background-size: 100% 600px;
 	word-wrap: break-word;
 	overflow-wrap: break-word;
-	color: rgb(var(--gray-dark));
-	font-size: 20px;
-	line-height: 1.7;
+	color: var(--color-ink);
+	font-size: var(--text-md);
+	line-height: 1.75;
+	background: var(--color-paper);
 }
+
 main {
-	width: 720px;
+	width: var(--measure);
 	max-width: calc(100% - 2em);
 	margin: auto;
-	padding: 3em 1em;
+	padding: var(--space-xl) var(--space-sm);
 }
+
 h1,
 h2,
 h3,
 h4,
 h5,
 h6 {
-	margin: 0 0 0.5rem 0;
-	color: rgb(var(--black));
-	line-height: 1.2;
+	font-family: var(--font-display);
+	font-style: normal; /* headings are always roman — no italic AI tell */
+	margin: 0 0 0.6em 0;
+	color: var(--color-ink);
+	line-height: 1.3;
+	overflow-wrap: anywhere;
+	min-width: 0;
 }
 h1 {
-	font-size: 3.052em;
+	font-size: var(--text-display);
 }
 h2 {
-	font-size: 2.441em;
+	font-size: var(--text-2xl);
+	margin-top: var(--space-2xl);
+	padding-top: var(--space-md);
+	border-top: 1px solid var(--color-rule);
 }
 h3 {
-	font-size: 1.953em;
+	font-size: var(--text-xl);
+	margin-top: var(--space-lg);
 }
 h4 {
-	font-size: 1.563em;
+	font-size: var(--text-lg);
 }
 h5 {
-	font-size: 1.25em;
+	font-size: var(--text-md);
+	letter-spacing: 0.02em;
 }
 strong,
 b {
 	font-weight: 700;
+	color: var(--color-ink-2);
 }
 a {
-	color: var(--accent);
+	color: var(--color-accent);
+	text-decoration-thickness: 1px;
+	text-underline-offset: 0.15em;
 }
 a:hover {
-	color: var(--accent);
+	text-decoration-thickness: 2px;
+}
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+[tabindex]:focus-visible {
+	outline: 2px solid var(--color-focus);
+	outline-offset: 2px;
+	transition: none; /* the ring must appear instantly, never animated in */
 }
 p {
-	margin-bottom: 1em;
+	margin: 0 0 1.25em 0;
 }
 .prose p {
-	margin-bottom: 2em;
+	margin-bottom: 1.5em;
+}
+.prose em {
+	font-style: italic; /* emphasis survives only as body-copy italic, never on headings */
 }
 textarea {
 	width: 100%;
-	font-size: 16px;
+	font-size: var(--text-md);
 }
 input {
-	font-size: 16px;
+	font-size: var(--text-md);
 }
+
+/* Tables — the report's primary content. Markdown tables have no wrapper element,
+   so the table itself becomes the scroll container (display:block keeps the
+   internal table/row/cell layout while letting it scroll independently of <body>). */
 table {
-	width: 100%;
+	display: block;
+	max-width: 100%;
+	overflow-x: auto;
+	-webkit-overflow-scrolling: touch;
+	margin: var(--space-md) 0;
+	border-collapse: collapse;
+	font-size: var(--text-sm);
+	font-variant-numeric: tabular-nums;
 }
+th,
+td {
+	padding: var(--space-2xs) var(--space-xs);
+	text-align: left;
+	border-bottom: 1px solid var(--color-rule);
+	white-space: nowrap;
+}
+th {
+	font-family: var(--font-display);
+	font-weight: 600;
+	color: var(--color-ink-2);
+	border-bottom: 2px solid var(--color-ink-2);
+}
+tbody tr:nth-child(even) {
+	background: var(--color-paper-2);
+}
+td:first-child,
+th:first-child {
+	white-space: normal;
+}
+
 img {
 	max-width: 100%;
 	height: auto;
-	border-radius: 8px;
+	border-radius: var(--radius-card);
 }
 code {
-	padding: 2px 5px;
-	background-color: rgb(var(--gray-light));
+	font-family: var(--font-mono);
+	font-size: 0.9em;
+	padding: 0.15em 0.4em;
+	background-color: var(--color-paper-2);
 	border-radius: 2px;
 }
 pre {
-	padding: 1.5em;
-	border-radius: 8px;
+	font-family: var(--font-mono);
+	padding: var(--space-sm);
+	border-radius: var(--radius-card);
+	background-color: var(--color-paper-2);
+	overflow-x: auto;
 }
 pre > code {
 	all: unset;
+	font-family: var(--font-mono);
 }
 blockquote {
-	border-left: 4px solid var(--accent);
-	padding: 0 0 0 20px;
-	margin: 0px;
-	font-size: 1.333em;
+	border-left: 3px solid var(--color-accent);
+	padding: var(--space-2xs) 0 var(--space-2xs) var(--space-md);
+	margin: var(--space-md) 0;
+	color: var(--color-ink-2);
+	font-size: 1.05em;
+}
+blockquote p:last-child {
+	margin-bottom: 0;
 }
 hr {
 	border: none;
-	border-top: 1px solid rgb(var(--gray-light));
+	border-top: 1px solid var(--color-rule);
+	margin: var(--space-lg) 0;
 }
 @media (max-width: 720px) {
 	body {
-		font-size: 18px;
+		font-size: var(--text-sm);
 	}
 	main {
-		padding: 1em;
+		padding: var(--space-md) var(--space-xs);
+	}
+	h2 {
+		margin-top: var(--space-xl);
 	}
 }
 

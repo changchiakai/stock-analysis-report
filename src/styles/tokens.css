@@ -1,0 +1,79 @@
+/* Hallmark tokens · theme: Almanac (reference/ledger cluster) · genre: editorial
+ * paper-band: light (L ~97%) · display-style: roman-serif (CJK) · accent-hue: cool (250°)
+ */
+:root {
+	/* Colour — cool slate anchor (hue 250), austere & low-chroma for a financial ledger feel */
+	--color-paper: oklch(97.5% 0.006 250);
+	--color-paper-2: oklch(94% 0.008 250);
+	--color-rule: oklch(85% 0.009 250);
+	--color-neutral: oklch(58% 0.012 250);
+	--color-muted: oklch(46% 0.014 250);
+	--color-ink: oklch(21% 0.014 250);
+	--color-ink-2: oklch(30% 0.014 250);
+
+	--color-accent: oklch(40% 0.09 253);
+	--color-accent-ink: oklch(97.5% 0.006 250);
+	--color-focus: oklch(56% 0.13 253);
+
+	/* Semantic data colours — functional, not decorative; used only inside tables/stats */
+	--color-positive: oklch(46% 0.12 148);
+	--color-negative: oklch(50% 0.16 25);
+
+	/* Typography — CJK-first pairing: serif display for editorial gravity, sans body for dense tables */
+	--font-display: "Noto Serif TC", "Noto Serif", ui-serif, serif;
+	--font-body: "Noto Sans TC", "Noto Sans", ui-sans-serif, system-ui, sans-serif;
+	--font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+	--text-xs: 0.75rem;
+	--text-sm: 0.875rem;
+	--text-md: 1.0625rem;
+	--text-lg: 1.25rem;
+	--text-xl: 1.75rem;
+	--text-2xl: 2.25rem;
+	--text-display: clamp(2.1rem, 1.6rem + 2vw, 3.1rem);
+	--text-display-s: clamp(1.6rem, 1.3rem + 1.2vw, 2.25rem);
+
+	/* Spacing — 4pt scale */
+	--space-3xs: 0.25rem;
+	--space-2xs: 0.5rem;
+	--space-xs: 0.75rem;
+	--space-sm: 1rem;
+	--space-md: 1.5rem;
+	--space-lg: 2rem;
+	--space-xl: 3rem;
+	--space-2xl: 4.5rem;
+	--space-3xl: 7rem;
+
+	/* Motion */
+	--ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+	--ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+	--ease-in-out: cubic-bezier(0.87, 0, 0.13, 1);
+	--dur-short: 150ms;
+	--dur-med: 220ms;
+
+	/* Shape */
+	--radius-card: 4px;
+	--radius-pill: 999px;
+	--radius-input: 4px;
+
+	--measure: 68ch;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--color-paper: oklch(15% 0.01 250);
+		--color-paper-2: oklch(19% 0.012 250);
+		--color-rule: oklch(30% 0.012 250);
+		--color-neutral: oklch(62% 0.012 250);
+		--color-muted: oklch(72% 0.01 250);
+		--color-ink: oklch(94% 0.008 250);
+		--color-ink-2: oklch(88% 0.008 250);
+
+		--color-accent: oklch(76% 0.1 253);
+		--color-accent-ink: oklch(15% 0.01 250);
+		--color-focus: oklch(78% 0.11 253);
+
+		--color-positive: oklch(70% 0.14 148);
+		--color-negative: oklch(72% 0.15 25);
+	}
+}

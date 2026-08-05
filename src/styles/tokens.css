@@ -19,6 +19,11 @@
 	--color-positive: oklch(46% 0.12 148);
 	--color-negative: oklch(50% 0.16 25);
 
+	/* Report-category colours — 個股 / 產業 / 主題（跨個股題材，如 GB300、800V、記憶體） */
+	--color-cat-stock: oklch(58% 0.012 250);
+	--color-cat-industry: oklch(58% 0.13 70);
+	--color-cat-theme: oklch(55% 0.11 165);
+
 	/* Typography — CJK-first pairing: serif display for editorial gravity, sans body for dense tables */
 	--font-display: "Noto Serif TC", "Noto Serif", ui-serif, serif;
 	--font-body: "Noto Sans TC", "Noto Sans", ui-sans-serif, system-ui, sans-serif;
@@ -75,5 +80,9 @@
 
 		--color-positive: oklch(70% 0.14 148);
 		--color-negative: oklch(72% 0.15 25);
+
+		--color-cat-stock: oklch(62% 0.012 250);
+		--color-cat-industry: oklch(72% 0.13 70);
+		--color-cat-theme: oklch(70% 0.11 165);
 	}
 }

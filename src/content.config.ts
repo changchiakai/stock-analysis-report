@@ -14,6 +14,8 @@ const blog = defineCollection({
 		updatedDate: z.coerce.date().optional(),
 		heroImage: z.string().optional(),
 		keywords: z.array(z.string()).optional(),
+		// Report scope: single stock / whole industry / cross-stock theme (e.g. GB300, 800V, memory).
+		category: z.enum(["stock", "industry", "theme"]).default("stock"),
 	}),
 });
 

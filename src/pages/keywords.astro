@@ -2,16 +2,26 @@
 import BaseHead from '../components/BaseHead.astro';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
-import { SITE_TITLE, SITE_KEYWORDS } from '../consts';
+import { SITE_TITLE, SITE_KEYWORDS, CATEGORY_LABELS } from '../consts';
 import { getCollection } from 'astro:content';
 
 const posts = await getCollection('blog');
 
 // Group posts by keyword.
-const keywordMap = new Map<string, { id: string; title: string; description: string; pubDate: Date }[]>();
+const keywordMap = new Map<
+	string,
+	{ id: string; title: string; description: string; pubDate: Date; category: string; categoryLabel: string }[]
+>();
 for (const post of posts) {
 	for (const keyword of post.data.keywords ?? []) {
-		const entry = { id: post.id, title: post.data.title, description: post.data.description, pubDate: post.data.pubDate };
+		const entry = {
+			id: post.id,
+			title: post.data.title,
+			description: post.data.description,
+			pubDate: post.data.pubDate,
+			category: post.data.category,
+			categoryLabel: CATEGORY_LABELS[post.data.category] ?? post.data.category,
+		};
 		if (!keywordMap.has(keyword)) keywordMap.set(keyword, []);
 		keywordMap.get(keyword)!.push(entry);
 	}
@@ -34,6 +44,7 @@ const graphNodes = [
 		kind: 'post' as const,
 		label: post.data.title,
 		weight: 1,
+		category: post.data.category,
 	})),
 ];
 const graphLinks = posts.flatMap((post) =>
@@ -49,6 +60,8 @@ const keywordDetails = Object.fromEntries(
 			title: p.title,
 			description: p.description,
 			pubDate: p.pubDate.toISOString(),
+			category: p.category,
+			categoryLabel: p.categoryLabel,
 		})),
 	]),
 );
@@ -60,6 +73,8 @@ const postDetails = Object.fromEntries(
 			description: post.data.description,
 			pubDate: post.data.pubDate.toISOString(),
 			keywords: post.data.keywords ?? [],
+			category: post.data.category,
+			categoryLabel: CATEGORY_LABELS[post.data.category] ?? post.data.category,
 		},
 	]),
 );
@@ -112,8 +127,14 @@ const postDetails = Object.fromEntries(
 			.legend .dot--keyword {
 				background: var(--color-accent);
 			}
-			.legend .dot--post {
-				background: var(--color-neutral);
+			.legend .dot--stock {
+				background: var(--color-cat-stock);
+			}
+			.legend .dot--industry {
+				background: var(--color-cat-industry);
+			}
+			.legend .dot--theme {
+				background: var(--color-cat-theme);
 			}
 			.graph-wrap {
 				display: grid;
@@ -156,8 +177,14 @@ const postDetails = Object.fromEntries(
 				fill-opacity: 0.4;
 			}
 			.node--post circle {
-				fill: var(--color-neutral);
+				fill: var(--color-cat-stock);
 				fill-opacity: 0.7;
+			}
+			.node--post[data-category='industry'] circle {
+				fill: var(--color-cat-industry);
+			}
+			.node--post[data-category='theme'] circle {
+				fill: var(--color-cat-theme);
 			}
 			.node text {
 				font-family: var(--font-mono);
@@ -228,6 +255,23 @@ const postDetails = Object.fromEntries(
 				font-family: var(--font-display);
 				font-size: var(--text-md);
 				color: var(--color-ink);
+			}
+			.panel-category {
+				display: inline-block;
+				margin: 0 0 var(--space-2xs);
+				font-family: var(--font-mono);
+				font-size: var(--text-xs);
+				letter-spacing: 0.04em;
+				color: var(--color-accent-ink);
+				background: var(--color-cat-stock);
+				border-radius: var(--radius-pill);
+				padding: var(--space-3xs) var(--space-xs);
+			}
+			.panel-category[data-category='industry'] {
+				background: var(--color-cat-industry);
+			}
+			.panel-category[data-category='theme'] {
+				background: var(--color-cat-theme);
 			}
 			.panel-count,
 			.panel-desc,
@@ -305,7 +349,9 @@ const postDetails = Object.fromEntries(
 					<>
 						<p class="legend">
 							<span><span class="dot dot--keyword" /> 關鍵字</span>
-							<span><span class="dot dot--post" /> 報告</span>
+							<span><span class="dot dot--stock" /> 個股報告</span>
+							<span><span class="dot dot--industry" /> 產業報告</span>
+							<span><span class="dot dot--theme" /> 主題報告</span>
 						</p>
 						<div class="graph-wrap">
 							<svg class="graph" viewBox="0 0 100 75" role="img" aria-label="關鍵字關聯圖">
@@ -323,6 +369,7 @@ const postDetails = Object.fromEntries(
 											aria-label={n.kind === 'keyword' ? `${n.label}（${n.weight} 篇報告）` : n.label}
 											data-id={n.id}
 											data-kind={n.kind}
+											data-category={n.kind === 'post' ? n.category : undefined}
 										>
 											<circle class="hit" r="2" fill="transparent" />
 											<circle class="dot" />
@@ -552,13 +599,17 @@ const postDetails = Object.fromEntries(
 						const li = document.createElement('li');
 						const a = document.createElement('a');
 						a.href = `/blog/${post.id}/`;
+						const cat = document.createElement('span');
+						cat.className = 'panel-category';
+						cat.dataset.category = post.category;
+						cat.textContent = post.categoryLabel;
 						const t = document.createElement('p');
 						t.className = 'panel-list-title';
 						t.textContent = post.title;
 						const d = document.createElement('p');
 						d.className = 'panel-list-desc';
 						d.textContent = post.description;
-						a.append(t, d);
+						a.append(cat, t, d);
 						li.append(a);
 						list.append(li);
 					}
@@ -569,6 +620,10 @@ const postDetails = Object.fromEntries(
 					const post = postDetails[postId];
 					if (!post) return;
 					panel.replaceChildren();
+					const category = document.createElement('span');
+					category.className = 'panel-category';
+					category.dataset.category = post.category;
+					category.textContent = post.categoryLabel;
 					const heading = document.createElement('p');
 					heading.className = 'panel-heading';
 					heading.textContent = post.title;
@@ -591,7 +646,7 @@ const postDetails = Object.fromEntries(
 						li.append(btn);
 						chips.append(li);
 					}
-					panel.append(heading, desc, link, chips);
+					panel.append(category, heading, desc, link, chips);
 				}
 
 				function selectNode(id) {

@@ -142,12 +142,7 @@ const postDetails = Object.fromEntries(
 				gap: var(--space-md);
 				margin: 0 0 var(--space-lg);
 			}
-			@media (min-width: 800px) {
-				.graph-wrap {
-					grid-template-columns: minmax(0, 1fr) 22rem;
-					align-items: start;
-				}
-			}
+			/* Keep the graph full-width; selected-node details follow underneath. */
 			.graph {
 				display: block;
 				width: 100%;
@@ -156,6 +151,26 @@ const postDetails = Object.fromEntries(
 				border: 1px solid var(--color-rule);
 				border-radius: var(--radius-card);
 				touch-action: none;
+			}
+			.graph-fullscreen {
+				margin-left: auto;
+				font: inherit;
+				color: var(--color-accent);
+				background: transparent;
+				border: 1px solid currentColor;
+				border-radius: var(--radius-pill);
+				padding: var(--space-3xs) var(--space-xs);
+				cursor: pointer;
+			}
+			.graph-fullscreen:hover {
+				color: var(--color-ink);
+			}
+			.graph:fullscreen {
+				width: 100vw;
+				height: 100vh;
+				aspect-ratio: auto;
+				border: 0;
+				border-radius: 0;
 			}
 			.link {
 				stroke: var(--color-rule);
@@ -192,11 +207,11 @@ const postDetails = Object.fromEntries(
 				text-anchor: middle;
 			}
 			.node--keyword text {
-				font-size: 2.1px;
+				font-size: 2.5px;
 				fill: var(--color-muted);
 			}
 			.node--post text {
-				font-size: 1.8px;
+				font-size: 2.1px;
 				fill: var(--color-ink-2);
 				opacity: 0;
 				transition: opacity var(--dur-short) var(--ease-out);
@@ -352,9 +367,10 @@ const postDetails = Object.fromEntries(
 							<span><span class="dot dot--stock" /> 個股報告</span>
 							<span><span class="dot dot--industry" /> 產業報告</span>
 							<span><span class="dot dot--theme" /> 主題報告</span>
+						<button class="graph-fullscreen" type="button" aria-label="全螢幕檢視關聯圖">全螢幕檢視</button>
 						</p>
 						<div class="graph-wrap">
-							<svg class="graph" viewBox="0 0 100 75" role="img" aria-label="關鍵字關聯圖">
+							<svg class="graph" viewBox="0 0 150 85" role="img" aria-label="關鍵字關聯圖">
 								<g class="links">
 									{graphLinks.map((l) => (
 										<line class="link" data-source={l.source} data-target={l.target} />
@@ -390,14 +406,15 @@ const postDetails = Object.fromEntries(
 		<script type="module" define:vars={{ graphNodes, graphLinks, keywordDetails, postDetails }}>
 			const svg = document.querySelector('.graph');
 			const panel = document.getElementById('graph-panel');
+			const fullscreenButton = document.querySelector('.graph-fullscreen');
 			if (svg && panel) {
-				const W = 100;
-				const H = 75;
+				const W = 150;
+				const H = 85;
 				const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 				const nodes = graphNodes.map((n, i) => ({
 					...n,
-					r: n.kind === 'keyword' ? Math.min(7, 1.8 + Math.sqrt(n.weight) * 1.5) : 1,
+					r: n.kind === 'keyword' ? Math.min(3.9, 1 + Math.sqrt(n.weight) * 0.8) : 0.6,
 					x: W / 2 + Math.cos((i / graphNodes.length) * Math.PI * 2) * 10,
 					y: H / 2 + Math.sin((i / graphNodes.length) * Math.PI * 2) * 10,
 					vx: 0,
@@ -433,7 +450,7 @@ const postDetails = Object.fromEntries(
 								dy = (Math.random() - 0.5) * 0.1;
 								distSq = dx * dx + dy * dy;
 							}
-							const strength = ((a.r + b.r) * 2.2 * alpha) / distSq;
+							const strength = ((a.r + b.r) * 3.2 * alpha) / distSq;
 							const fx = dx * strength;
 							const fy = dy * strength;
 							a.vx -= fx;
@@ -447,7 +464,7 @@ const postDetails = Object.fromEntries(
 						const dx = target.x - source.x;
 						const dy = target.y - source.y;
 						const dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
-						const targetLen = 6 + (source.r + target.r) * 0.9;
+						const targetLen = 9 + (source.r + target.r) * 1.1;
 						const diff = ((dist - targetLen) / dist) * 0.25 * alpha;
 						const fx = dx * diff;
 						const fy = dy * diff;
@@ -665,6 +682,22 @@ const postDetails = Object.fromEntries(
 					} else {
 						renderPostPanel(node.id.slice('post:'.length));
 					}
+				}
+
+				function syncFullscreenControl() {
+					const isFullscreen = document.fullscreenElement === svg;
+					fullscreenButton.textContent = isFullscreen ? '離開全螢幕' : '全螢幕檢視';
+					fullscreenButton.setAttribute('aria-label', isFullscreen ? '離開關聯圖全螢幕' : '全螢幕檢視關聯圖');
+				}
+				if (fullscreenButton) {
+					fullscreenButton.addEventListener('click', () => {
+						if (document.fullscreenElement === svg) {
+							void document.exitFullscreen();
+						} else {
+							void svg.requestFullscreen().catch(() => {});
+						}
+					});
+					document.addEventListener('fullscreenchange', syncFullscreenControl);
 				}
 
 				for (const n of nodes) {
